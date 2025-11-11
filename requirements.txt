@@ -1,0 +1,7 @@
+streamlit
+pyteomics
+matplotlib 
+numpy 
+pandas
+spectrum-utils
+lxml
