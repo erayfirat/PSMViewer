@@ -40,10 +40,7 @@ def load_mztab(file_buffer: Any) -> pd.DataFrame:
     as a pandas DataFrame.
     """
     tab = mztab.MzTab(file_buffer)
-    psm_data = tab['psm'] 
-    psm_df = pd.DataFrame(psm_data)
-    
-    return psm_df
+    return pd.DataFrame(tab['psm'])
 
 def extract_index_from_spectra_ref(s: str) -> str:
     """Try to extract a numeric index or id from a spectra_ref string."""
@@ -76,27 +73,16 @@ def theoretical_fragments(peptide: str) -> List[Tuple[str, float]]:
     seq = seq.replace('I', 'L')
 
     fragments = []
-
-    # calculate b-ions (z=1)
-    for i in range(1, len(seq)):
-        try:
-            mz = mass.calculate_mass(sequence=seq[:i], ion_type='b', charge=1)
-            fragments.append((f'b{i}', mz))
-        except KeyError:
-            pass  # skip if unknown amino acid
-
-    # calculate y-ions (z=1)
-    for i in range(1, len(seq)):
-        try:
-            mz = mass.calculate_mass(sequence=seq[-i:], ion_type='y', charge=1)
-            fragments.append((f'y{i}', mz))
-        except KeyError:
-            pass  # skip if unknown amino acid
+    for ion_type, prefix in [('b', 'b'), ('y', 'y')]:
+        for i in range(1, len(seq)):
+            seq_part = seq[:i] if ion_type == 'b' else seq[-i:]
+            try:
+                mz = mass.calculate_mass(sequence=seq_part, ion_type=ion_type, charge=1)
+                fragments.append((f'{prefix}{i}', mz))
+            except KeyError:
+                pass  # skip if unknown amino acid
 
     return fragments
-
-def ppm(m1, m2):
-    return abs(m1-m2)/m2*1e6
 
 def annotate_spectrum(mz_array: np.ndarray, intensity_array: np.ndarray, theo_mzs: List[Tuple[str, float]], tol_ppm: float=20.0):
     """For each theoretical mz, find the observed peak index within tol_ppm.
@@ -254,13 +240,8 @@ def run_streamlit_app():
     mztab_file = st.file_uploader('Upload mzTab file', type=['mztab', 'mztab.txt'])
     if mgf_file and mztab_file:
         # read uploaded bytes into functions
-        mgf_string = mgf_file.read().decode('utf-8')
-        mgf_buffer = io.StringIO(mgf_string)
-        spectra = load_mgf(mgf_buffer)
-
-        mztab_string = mztab_file.read().decode('utf-8')
-        mztab_buffer = io.StringIO(mztab_string)
-        psm_df = load_mztab(mztab_buffer)
+        spectra = load_mgf(io.StringIO(mgf_file.read().decode('utf-8')))
+        psm_df = load_mztab(io.StringIO(mztab_file.read().decode('utf-8')))
 
         mapped = map_psms_to_spectra(spectra, psm_df)
 
