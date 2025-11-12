@@ -19,18 +19,14 @@ def load_mgf(file_buffer: Any) -> List[Dict[str, Any]]:
     specs = []
     with mgf.read(file_buffer, use_index=False) as reader:
         for s in reader:
-            # normalize title to string
             params = s.get('params', {})
             title = params.get('title')
-            scans = params.get('scans')
             pepmass = params.get('pepmass')
             specs.append({
-                'title': str(title) if title is not None else None,
-                'scans': str(scans) if scans is not None else None,
+                'title': str(title) if title else None,
                 'pepmass': pepmass,
                 'mz_array': s.get('m/z array'),
-                'intensity_array': s.get('intensity array'),
-                'params': params
+                'intensity_array': s.get('intensity array')
             })
     return specs
 
@@ -101,133 +97,58 @@ def annotate_spectrum(mz_array: np.ndarray, intensity_array: np.ndarray, theo_mz
 
 # ---- High-level pipeline ----
 
-def map_psms_to_spectra(spectra: List[Dict], psm_df: pd.DataFrame, title_field='title') -> pd.DataFrame:
-    """Return a dataframe with mappings between spectra and PSMs.
-    The function will try to match by exact title -> spectra_ref or by numeric index extraction."""
-    # ensure spectra_ref column exists
-    if 'spectra_ref' not in psm_df.columns and 'spectra_ref' not in [c.lower() for c in psm_df.columns]:
-        # try to find a column that contains 'ms_run' or 'index' or 'spectra'
-        candidates = [c for c in psm_df.columns if 'ms_run' in c or 'index' in c or 'spectra' in c or 'scan' in c]
-        spectra_ref_col = candidates[0] if candidates else None
-    else:
-        # prefer exact match
-        spectra_ref_col = 'spectra_ref' if 'spectra_ref' in psm_df.columns else [c for c in psm_df.columns if c.lower()=='spectra_ref'][0]
-
-    # find peptide/sequence column
-    seq_col = None
-    for c in psm_df.columns:
-        # peptide sequences are uppercase letters with possible brackets
-        if psm_df[c].astype(str).str.match(r'^[A-Z\[].+').any():
-            seq_col = c
-            break
-    if seq_col is None:
-        # fallback to first column
-        seq_col = psm_df.columns[0]
+def map_psms_to_spectra(spectra: List[Dict], psm_df: pd.DataFrame) -> pd.DataFrame:
+    """Map PSMs to spectra by title or index."""
+    title_to_spec = {s['title']: s for s in spectra if s['title']}
+    index_to_spec = {str(i): spectra[i] for i in range(len(spectra))}
 
     mappings = []
-    # build lookup from title to spectrum
-    title_to_spec = {s.get('title'): s for s in spectra}
-    # also build numeric index map for titles that are ints
-    num_title_map = {}
-    for t,s in title_to_spec.items():
-        try:
-            num_title_map[str(int(str(t)))] = s
-        except Exception:
-            pass
-
     for i, row in psm_df.iterrows():
-        seq = str(row.get(seq_col))
-        spec_ref = None
-        if spectra_ref_col is not None:
-            spec_ref = str(row.get(spectra_ref_col))
-        # try exact match
-        matched_spec = None
-        if spec_ref is not None and spec_ref in title_to_spec:
-            matched_spec = title_to_spec[spec_ref]
-        # try numeric extraction
-        if matched_spec is None and spec_ref is not None:
-            idx = extract_index_from_spectra_ref(spec_ref)
-            if idx and idx in num_title_map:
-                matched_spec = num_title_map[idx]
-        # also try matching by sequence's precursor m/z vs pepmass
-        if matched_spec is None:
-            # optional: compare calc_mass_to_charge columns if present
-            if 'calc_mass_to_charge' in psm_df.columns:
-                try:
-                    calc_mz = float(row['calc_mass_to_charge'])
-                    # search nearest in spectra by pepmass
-                    best = None
-                    bestdiff = 1e9
-                    for s in spectra:
-                        pep = s.get('pepmass')
-                        if pep:
-                            obs = pep[0] if isinstance(pep, (list, tuple)) else float(pep)
-                            diff = abs(obs - calc_mz)
-                            if diff < bestdiff:
-                                bestdiff = diff; best = s
-                    if best and bestdiff < 0.1:  # arbitrary tolerance
-                        matched_spec = best
-                except Exception:
-                    pass
+        spec_ref = str(row.get('spectra_ref', ''))
+        matched_spec = title_to_spec.get(spec_ref) or index_to_spec.get(extract_index_from_spectra_ref(spec_ref))
         mappings.append({
             'psm_index': i,
-            'sequence': seq,
+            'sequence': str(row.get('sequence', '')),
             'spectra_ref': spec_ref,
-            'matched_title': matched_spec.get('title') if matched_spec else None,
-            'matched_scans': matched_spec.get('scans') if matched_spec else None,
-            'pepmass': matched_spec.get('pepmass') if matched_spec else None,
+            'matched_title': matched_spec['title'] if matched_spec else None,
             'mz_array': matched_spec.get('mz_array') if matched_spec else None,
-            'intensity_array': matched_spec.get('intensity_array') if matched_spec else None
+            'intensity_array': matched_spec.get('intensity_array') if matched_spec else None,
+            'pepmass': matched_spec.get('pepmass') if matched_spec else None
         })
     return pd.DataFrame(mappings)
 
 
-def draw_graph_spectrum_utils(row, mz, inten):
-    precursor_mz = float(row['pepmass'][0])
-    charge = int(row.get('charge', 2))  # default to 2 if not available
-    spec = sus.MsmsSpectrum(row['matched_title'], precursor_mz, charge, mz, inten)
-
-    # Process the spectrum.
-    fragment_tol_mass, fragment_tol_mode = 10, "ppm"
-    spec = (
-        spec.set_mz_range(min_mz=100, max_mz=1400)
-        .remove_precursor_peak(fragment_tol_mass, fragment_tol_mode)
-        .filter_intensity(min_intensity=0.05, max_num_peaks=50)
-        .scale_intensity("root")
-        .annotate_proforma(
-            row['sequence'], fragment_tol_mass, fragment_tol_mode, ion_types="aby"
-        )
-    )
-
-    # Plot the spectrum using spectrum_utils
+def draw_spectrum(row, mz, inten, graph_type):
+    """Draw spectrum using specified library."""
     fig, ax = plt.subplots(figsize=(12, 6))
-    sup.spectrum(spec, grid=False, ax=ax)
     ax.set_title(f"Spectrum {row['matched_title']} — Sequence: {row['sequence']}")
     ax.spines["right"].set_visible(False)
     ax.spines["top"].set_visible(False)
-    return fig
 
-
-def draw_graph_matplotlib(row, mz, inten):
-    theo = theoretical_fragments(row['sequence'])
-    matches = annotate_spectrum(np.array(mz), np.array(inten), theo, tol_ppm=20.0)
-
-    fig, ax = plt.subplots(figsize=(12,6))
-    ax.vlines(mz, [0], inten, color='gray', zorder=1)
-    ax.set_xlabel('m/z')
-    ax.set_ylabel('intensity')
-    ax.set_title(f"Spectrum {row['matched_title']} — Sequence: {row['sequence']}")
-    matches_mz = [m[2] for m in matches] 
-    matches_int = [m[3] for m in matches]
-    ax.vlines(matches_mz, [0], matches_int, color='red', zorder=2)
-    ax.spines["right"].set_visible(False)
-    ax.spines["top"].set_visible(False)
-
-    # mark matched peaks
-    for label, theo_mz, obs_mz, inten_val, idx, diff_ppm in matches:
-        ax.plot([obs_mz], [inten_val], marker='o', color='red', zorder=3)
-        y_position = inten_val + 0.015
-        ax.text(obs_mz, y_position, label, fontsize=8, zorder=3, ha='center', va='bottom')
+    if graph_type == 'spectrum_utils':
+        precursor_mz = float(row['pepmass'][0])
+        charge = 2
+        spec = sus.MsmsSpectrum(row['matched_title'], precursor_mz, charge, mz, inten)
+        spec = (
+            spec.set_mz_range(min_mz=100, max_mz=1400)
+            .remove_precursor_peak(10, "ppm")
+            .filter_intensity(min_intensity=0.05, max_num_peaks=50)
+            .scale_intensity("root")
+            .annotate_proforma(row['sequence'], 10, "ppm", ion_types="aby")
+        )
+        sup.spectrum(spec, grid=False, ax=ax)
+    else:
+        theo = theoretical_fragments(row['sequence'])
+        matches = annotate_spectrum(np.array(mz), np.array(inten), theo)
+        ax.vlines(mz, [0], inten, color='gray', zorder=1)
+        ax.set_xlabel('m/z')
+        ax.set_ylabel('intensity')
+        matches_mz = [m[2] for m in matches]
+        matches_int = [m[3] for m in matches]
+        ax.vlines(matches_mz, [0], matches_int, color='red', zorder=2)
+        for label, _, obs_mz, inten_val, _, _ in matches:
+            ax.plot([obs_mz], [inten_val], marker='o', color='red', zorder=3)
+            ax.text(obs_mz, inten_val + 0.015, label, fontsize=8, ha='center', va='bottom')
     return fig
 
 
@@ -247,23 +168,15 @@ def run_streamlit_app():
 
         st.write(f"Loaded {len(spectra)} spectra and {len(psm_df)} PSMs. Matches: {mapped['matched_title'].notnull().sum()}")
 
-        # show table of mapped PSMs
-        st.dataframe(mapped[['psm_index', 'sequence', 'spectra_ref', 'matched_title']])
+        st.dataframe(mapped[['psm_index', 'sequence', 'matched_title']])
 
-        sel = st.number_input('Select PSM index to view (psm_index)', min_value=0, max_value=len(mapped)-1, value=0)
+        sel = st.number_input('Select PSM index', min_value=0, max_value=len(mapped)-1, value=0)
         row = mapped.iloc[int(sel)]
-        st.write(row[['sequence', 'spectra_ref', 'matched_title']])
-        if row['matched_title'] is not None:
-            mz = row['mz_array']
-            inten = row['intensity_array']
-            if graph_type == 'spectrum_utils':
-                fig = draw_graph_spectrum_utils(row, mz, inten)
-            else:
-                fig = draw_graph_matplotlib(row, mz, inten)
-
+        if row['matched_title']:
+            fig = draw_spectrum(row, row['mz_array'], row['intensity_array'], graph_type)
             st.pyplot(fig)
         else:
-            st.warning('No matching spectrum found for this PSM')
+            st.warning('No matching spectrum found')
 
 
 if __name__ == '__main__':
