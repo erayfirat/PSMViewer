@@ -6,6 +6,9 @@ import numpy as np
 import pandas as pd
 from pyteomics import mgf, mass, mztab
 
+import spectrum_utils.plot as sup
+import spectrum_utils.spectrum as sus
+
 # Optional UI
 try:
     import streamlit as st
@@ -97,7 +100,6 @@ def theoretical_fragments(peptide: str) -> List[Tuple[str, float]]:
 
 def ppm(m1, m2):
     return abs(m1-m2)/m2*1e6
-
 
 def annotate_spectrum(mz_array: np.ndarray, intensity_array: np.ndarray, theo_mzs: List[Tuple[str, float]], tol_ppm: float=20.0):
     """For each theoretical mz, find the observed peak index within tol_ppm.
@@ -197,10 +199,61 @@ def map_psms_to_spectra(spectra: List[Dict], psm_df: pd.DataFrame, title_field='
     return pd.DataFrame(mappings)
 
 
+def draw_graph_spectrum_utils(row, mz, inten):
+    precursor_mz = row['pepmass'][0]
+    precursor_mz = float(precursor_mz)
+    charge = int(row.get('charge', 2))  # default to 2 if not available
+    spec = sus.MsmsSpectrum(row['matched_title'], precursor_mz, charge, mz, inten)
+            
+            # Process the spectrum.
+    fragment_tol_mass, fragment_tol_mode = 10, "ppm"
+    spec = (
+                spec.set_mz_range(min_mz=100, max_mz=1400)
+                .remove_precursor_peak(fragment_tol_mass, fragment_tol_mode)
+                .filter_intensity(min_intensity=0.05, max_num_peaks=50)
+                .scale_intensity("root")
+                .annotate_proforma(
+                    row['sequence'], fragment_tol_mass, fragment_tol_mode, ion_types="aby"
+                )
+            )
+            # Plot the spectrum using spectrum_utils
+    fig, ax = plt.subplots(figsize=(12,6))
+           
+    sup.spectrum(spec, grid=False, ax=ax)
+
+    ax.set_title(f"Spectrum {row['matched_title']} — Sequence: {row['sequence']}")
+    ax.spines["right"].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    return fig
+
+
+def draw_graph_matplotlib(row, mz, inten):
+    theo = theoretical_fragments(row['sequence'])
+    matches = annotate_spectrum(np.array(mz), np.array(inten), theo, tol_ppm=20.0)
+
+    fig, ax = plt.subplots(figsize=(12,6))
+    ax.vlines(mz, [0], inten, color='gray', zorder=1)
+    ax.set_xlabel('m/z')
+    ax.set_ylabel('intensity')
+    ax.set_title(f"Spectrum {row['matched_title']} — Sequence: {row['sequence']}")
+    matches_mz = [m[2] for m in matches] 
+    matches_int = [m[3] for m in matches]
+    ax.vlines(matches_mz, [0], matches_int, color='red', zorder=2)
+    ax.spines["right"].set_visible(False)
+    ax.spines["top"].set_visible(False)
+            # mark matched peaks
+    for label, theo_mz, obs_mz, inten_val, idx, diff_ppm in matches:
+        ax.plot([obs_mz], [inten_val], marker='o', color='red', zorder=3)
+        y_position = inten_val + 0.015 
+        ax.text(obs_mz, y_position, label, fontsize=8, zorder=3, ha='center', va='bottom')
+    return fig
+
+
 # ---- Streamlit app ----
 
 def run_streamlit_app():
-    st.title('PSM Viewer — minimal')
+    st.title('PSM Viewer App')
+    graph_type = st.selectbox('Select graphing library', ['matplotlib', 'spectrum_utils'])
     mgf_file = st.file_uploader('Upload MGF file', type=['mgf'])
     mztab_file = st.file_uploader('Upload mzTab file', type=['mztab', 'mztab.txt'])
     if mgf_file and mztab_file:
@@ -226,23 +279,11 @@ def run_streamlit_app():
         if row['matched_title'] is not None:
             mz = row['mz_array']
             inten = row['intensity_array']
-            # compute theoretical fragments
-            theo = theoretical_fragments(row['sequence'])
-            matches = annotate_spectrum(np.array(mz), np.array(inten), theo, tol_ppm=20.0)
+            if graph_type == 'spectrum_utils':
+                fig = draw_graph_spectrum_utils(row, mz, inten)
+            else:
+                fig = draw_graph_matplotlib(row, mz, inten)
 
-            fig, ax = plt.subplots(figsize=(10,4))
-            ax.vlines(mz, [0], inten, color='gray', zorder=1)
-            ax.set_xlabel('m/z')
-            ax.set_ylabel('intensity')
-            ax.set_title(f"Spectrum {row['matched_title']} — Sequence: {row['sequence']}")
-            matches_mz = [m[2] for m in matches] 
-            matches_int = [m[3] for m in matches] 
-            ax.vlines(matches_mz, [0], matches_int, color='red', zorder=2)
-            # mark matched peaks
-            for label, theo_mz, obs_mz, inten_val, idx, diff_ppm in matches:
-                ax.plot([obs_mz], [inten_val], marker='o', color='red', zorder=3)
-                y_position = inten_val + 0.015 
-                ax.text(obs_mz, y_position, label, fontsize=8, zorder=3, ha='center', va='bottom')
             st.pyplot(fig)
         else:
             st.warning('No matching spectrum found for this PSM')
