@@ -6,15 +6,12 @@ import numpy as np
 import pandas as pd
 from pyteomics import mgf, mass, mztab
 
-import spectrum_utils.plot as sup
-import spectrum_utils.spectrum as sus
+from spectrum_utils import plot as sup
+from spectrum_utils import spectrum as sus
+from matplotlib import pyplot as plt
 
-# Optional UI
-try:
-    import streamlit as st
-    from matplotlib import pyplot as plt
-except Exception:
-    st = None
+import streamlit as st
+
 
 # ---- Data loading functions ----
 def load_mgf(file_buffer: Any) -> List[Dict[str, Any]]:
@@ -77,16 +74,16 @@ def theoretical_fragments(peptide: str) -> List[Tuple[str, float]]:
     # remove modifications in brackets
     seq = re.sub(r"\[.*?\]", "", peptide)
     seq = seq.replace('I', 'L')
-    
+
     fragments = []
-    
+
     # calculate b-ions (z=1)
     for i in range(1, len(seq)):
         try:
             mz = mass.calculate_mass(sequence=seq[:i], ion_type='b', charge=1)
             fragments.append((f'b{i}', mz))
         except KeyError:
-            pass # pass if unknown amino acid
+            pass  # skip if unknown amino acid
 
     # calculate y-ions (z=1)
     for i in range(1, len(seq)):
@@ -94,8 +91,8 @@ def theoretical_fragments(peptide: str) -> List[Tuple[str, float]]:
             mz = mass.calculate_mass(sequence=seq[-i:], ion_type='y', charge=1)
             fragments.append((f'y{i}', mz))
         except KeyError:
-            pass # ass if unknown amino acid
-            
+            pass  # skip if unknown amino acid
+
     return fragments
 
 def ppm(m1, m2):
@@ -200,27 +197,25 @@ def map_psms_to_spectra(spectra: List[Dict], psm_df: pd.DataFrame, title_field='
 
 
 def draw_graph_spectrum_utils(row, mz, inten):
-    precursor_mz = row['pepmass'][0]
-    precursor_mz = float(precursor_mz)
+    precursor_mz = float(row['pepmass'][0])
     charge = int(row.get('charge', 2))  # default to 2 if not available
     spec = sus.MsmsSpectrum(row['matched_title'], precursor_mz, charge, mz, inten)
-            
-            # Process the spectrum.
+
+    # Process the spectrum.
     fragment_tol_mass, fragment_tol_mode = 10, "ppm"
     spec = (
-                spec.set_mz_range(min_mz=100, max_mz=1400)
-                .remove_precursor_peak(fragment_tol_mass, fragment_tol_mode)
-                .filter_intensity(min_intensity=0.05, max_num_peaks=50)
-                .scale_intensity("root")
-                .annotate_proforma(
-                    row['sequence'], fragment_tol_mass, fragment_tol_mode, ion_types="aby"
-                )
-            )
-            # Plot the spectrum using spectrum_utils
-    fig, ax = plt.subplots(figsize=(12,6))
-           
-    sup.spectrum(spec, grid=False, ax=ax)
+        spec.set_mz_range(min_mz=100, max_mz=1400)
+        .remove_precursor_peak(fragment_tol_mass, fragment_tol_mode)
+        .filter_intensity(min_intensity=0.05, max_num_peaks=50)
+        .scale_intensity("root")
+        .annotate_proforma(
+            row['sequence'], fragment_tol_mass, fragment_tol_mode, ion_types="aby"
+        )
+    )
 
+    # Plot the spectrum using spectrum_utils
+    fig, ax = plt.subplots(figsize=(12, 6))
+    sup.spectrum(spec, grid=False, ax=ax)
     ax.set_title(f"Spectrum {row['matched_title']} — Sequence: {row['sequence']}")
     ax.spines["right"].set_visible(False)
     ax.spines["top"].set_visible(False)
@@ -241,10 +236,11 @@ def draw_graph_matplotlib(row, mz, inten):
     ax.vlines(matches_mz, [0], matches_int, color='red', zorder=2)
     ax.spines["right"].set_visible(False)
     ax.spines["top"].set_visible(False)
-            # mark matched peaks
+
+    # mark matched peaks
     for label, theo_mz, obs_mz, inten_val, idx, diff_ppm in matches:
         ax.plot([obs_mz], [inten_val], marker='o', color='red', zorder=3)
-        y_position = inten_val + 0.015 
+        y_position = inten_val + 0.015
         ax.text(obs_mz, y_position, label, fontsize=8, zorder=3, ha='center', va='bottom')
     return fig
 
@@ -290,7 +286,4 @@ def run_streamlit_app():
 
 
 if __name__ == '__main__':
-    if st is None:
-        print('Streamlit not available. Install streamlit to use the UI.')
-    else:
-        run_streamlit_app()
+    run_streamlit_app()
