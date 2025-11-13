@@ -1,16 +1,15 @@
 # PSM Viewer
 
-A minimal tool for viewing and analyzing Peptide-Spectrum Matches (PSMs) from mass spectrometry data. This application loads MGF spectra files and mzTab PSM results, maps them together, and provides both command-line and web-based interfaces for visualization.
+A Streamlit web application for viewing and analyzing Peptide-Spectrum Matches (PSMs) from mass spectrometry data. This application allows users to upload MGF spectra files and mzTab PSM results, maps them together, and provides interactive visualization of spectra with annotated peptide fragments.
 
 ## Features
 
-- Load and parse MGF mass spectrometry spectra files
-- Parse mzTab format PSM results
-- Map PSMs to corresponding spectra using various matching strategies
-- Compute theoretical b and y ion fragments for peptide sequences
-- Annotate spectra with matched theoretical fragments
-- Command-line interface for batch processing
-- Interactive Streamlit web app with spectrum visualization plots
+- Upload and parse MGF mass spectrometry spectra files
+- Upload and parse mzTab format PSM results
+- Map PSMs to corresponding spectra using title or index matching
+- Display PSM-to-spectrum mappings in an interactive table
+- Visualize individual spectra with annotated b and y ion fragments
+- Interactive spectrum plots showing precursor peaks and theoretical fragments
 
 ## Installation
 
@@ -30,27 +29,16 @@ A minimal tool for viewing and analyzing Peptide-Spectrum Matches (PSMs) from ma
 
 ## Usage
 
-### Command Line Interface
-
-Run the CLI version to process data and get summary statistics:
-```bash
-python3 app.py
-```
-
-This will load the default data files (`data/sample_preprocessed_spectra.mgf` and `data/casanovo_20251029091517.mztab`) and display mapping results.
-
-### Streamlit Web App
-
 Launch the interactive web application:
 ```bash
-python3 -m streamlit run app.py -- --streamlit
+streamlit run app.py
 ```
 
 The web app allows you to:
 - Upload your own MGF and mzTab files
-- View PSM-to-spectrum mappings in a table
-- Select individual PSMs to visualize their spectra
-- See annotated peaks for theoretical b and y ions
+- View PSM-to-spectrum mappings in an interactive table
+- Select individual PSMs by index to visualize their spectra
+- See annotated spectrum plots with theoretical b and y ion fragments
 
 ## Data Formats
 
@@ -74,10 +62,7 @@ The web app allows you to:
 ```
 ├── app.py                 # Main application script
 ├── requirements.txt       # Python dependencies
-├── README.md             # This file
-└── data/
-    ├── sample_preprocessed_spectra.mgf    # Example MGF file
-    └── casanovo_20251029091517.mztab      # Example mzTab file
+└── README.md             # This file
 ```
 
 ## License
