@@ -1,10 +1,9 @@
 import re
 import io
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any
 
-import numpy as np
 import pandas as pd
-from pyteomics import mgf, mass, mztab
+from pyteomics import mgf, mztab
 
 from spectrum_utils import plot as sup
 from spectrum_utils import spectrum as sus
@@ -59,41 +58,6 @@ def extract_index_from_spectra_ref(s: str) -> str:
         return s
     return None
 
-def theoretical_fragments(peptide: str) -> List[Tuple[str, float]]:
-    """
-    Compute simple b and y ion m/zs (at z=1) for a peptide sequence using pyteomics.
-    This function strips modifications in square brackets.
-    """
-    # remove modifications in brackets
-    seq = re.sub(r"\[.*?\]", "", peptide)
-    seq = seq.replace('I', 'L')
-
-    fragments = []
-    for ion_type, prefix in [('b', 'b'), ('y', 'y')]:
-        for i in range(1, len(seq)):
-            seq_part = seq[:i] if ion_type == 'b' else seq[-i:]
-            try:
-                mz = mass.calculate_mass(sequence=seq_part, ion_type=ion_type, charge=1)
-                fragments.append((f'{prefix}{i}', mz))
-            except KeyError:
-                pass  # skip if unknown amino acid
-
-    return fragments
-
-def annotate_spectrum(mz_array: np.ndarray, intensity_array: np.ndarray, theo_mzs: List[Tuple[str, float]], tol_ppm: float=20.0):
-    """For each theoretical mz, find the observed peak index within tol_ppm.
-    Returns list of matched indices and unmatched.
-    """
-    matches = []
-    mzs = mz_array
-    for label, theo in theo_mzs:
-        # compute diffs in ppm
-        diffs = np.abs(mzs - theo) / theo * 1e6
-        idx = np.argmin(diffs)
-        if diffs[idx] <= tol_ppm:
-            matches.append((label, theo, mzs[idx], intensity_array[idx], idx, diffs[idx]))
-    return matches
-
 
 # ---- High-level pipeline ----
 
@@ -118,37 +82,24 @@ def map_psms_to_spectra(spectra: List[Dict], psm_df: pd.DataFrame) -> pd.DataFra
     return pd.DataFrame(mappings)
 
 
-def draw_spectrum(row, mz, inten, graph_type):
-    """Draw spectrum using specified library."""
+def draw_spectrum(row, mz, inten):
+    """Draw spectrum using spectrum_utils."""
     fig, ax = plt.subplots(figsize=(12, 6))
     ax.set_title(f"Spectrum {row['matched_title']} — Sequence: {row['sequence']}")
     ax.spines["right"].set_visible(False)
     ax.spines["top"].set_visible(False)
 
-    if graph_type == 'spectrum_utils':
-        precursor_mz = float(row['pepmass'][0])
-        charge = 2
-        spec = sus.MsmsSpectrum(row['matched_title'], precursor_mz, charge, mz, inten)
-        spec = (
-            spec.set_mz_range(min_mz=100, max_mz=1400)
-            .remove_precursor_peak(10, "ppm")
-            .filter_intensity(min_intensity=0.05, max_num_peaks=50)
-            .scale_intensity("root")
-            .annotate_proforma(row['sequence'], 10, "ppm", ion_types="aby")
-        )
-        sup.spectrum(spec, grid=False, ax=ax)
-    else:
-        theo = theoretical_fragments(row['sequence'])
-        matches = annotate_spectrum(np.array(mz), np.array(inten), theo)
-        ax.vlines(mz, [0], inten, color='gray', zorder=1)
-        ax.set_xlabel('m/z')
-        ax.set_ylabel('intensity')
-        matches_mz = [m[2] for m in matches]
-        matches_int = [m[3] for m in matches]
-        ax.vlines(matches_mz, [0], matches_int, color='red', zorder=2)
-        for label, _, obs_mz, inten_val, _, _ in matches:
-            ax.plot([obs_mz], [inten_val], marker='o', color='red', zorder=3)
-            ax.text(obs_mz, inten_val + 0.015, label, fontsize=8, ha='center', va='bottom')
+    precursor_mz = float(row['pepmass'][0])
+    charge = 2
+    spec = sus.MsmsSpectrum(row['matched_title'], precursor_mz, charge, mz, inten)
+    spec = (
+        spec.set_mz_range(min_mz=100, max_mz=1400)
+        .remove_precursor_peak(10, "ppm")
+        .filter_intensity(min_intensity=0.05, max_num_peaks=50)
+        .scale_intensity("root")
+        .annotate_proforma(row['sequence'], 10, "ppm", ion_types="aby")
+    )
+    sup.spectrum(spec, grid=False, ax=ax)
     return fig
 
 
@@ -156,7 +107,6 @@ def draw_spectrum(row, mz, inten, graph_type):
 
 def run_streamlit_app():
     st.title('PSM Viewer App')
-    graph_type = st.selectbox('Select graphing library', ['matplotlib', 'spectrum_utils'])
     mgf_file = st.file_uploader('Upload MGF file', type=['mgf'])
     mztab_file = st.file_uploader('Upload mzTab file', type=['mztab', 'mztab.txt'])
     if mgf_file and mztab_file:
@@ -173,7 +123,7 @@ def run_streamlit_app():
         sel = st.number_input('Select PSM index', min_value=0, max_value=len(mapped)-1, value=0)
         row = mapped.iloc[int(sel)]
         if row['matched_title']:
-            fig = draw_spectrum(row, row['mz_array'], row['intensity_array'], graph_type)
+            fig = draw_spectrum(row, row['mz_array'], row['intensity_array'])
             st.pyplot(fig)
         else:
             st.warning('No matching spectrum found')
