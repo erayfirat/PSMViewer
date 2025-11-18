@@ -1,7 +1,6 @@
-streamlit
-pyteomics
-matplotlib 
-numpy 
-pandas
-spectrum-utils
-lxml
+streamlit>=1.0
+pyteomics>=4.0
+matplotlib>=3.5
+numpy>=1.20
+pandas>=1.3
+spectrum-utils>=0.4
