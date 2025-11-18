@@ -165,23 +165,6 @@ The application handles various spectrum referencing conventions:
 - `spectrum:789` (colon-separated)
 - `42` (plain numeric)
 
-## 🛠️ Technical Background
-
-### Peptide-Spectrum Matching
-In proteomics, mass spectrometry generates fragmentation spectra of peptides. Database search engines identify peptides by matching experimental spectra against theoretical fragmentation patterns. PSM Viewer enables visual validation of these computational identifications.
-
-### Fragment Ion Types
-- **b-ions**: N-terminal fragments retaining positive charge
-- **y-ions**: C-terminal fragments retaining positive charge
-- **Theoretical masses**: Calculated from peptide sequence and fragmentation chemistry
-
-### Spectrum Processing Pipeline
-1. **Range filtering**: Focus on peptide fragments (typically 100-1400 m/z)
-2. **Precursor removal**: Eliminate parent ion peaks to reduce noise
-3. **Peak filtering**: Retain most intense peaks for clarity
-4. **Intensity scaling**: Compress dynamic range using square root transformation
-5. **Annotation**: Map theoretical fragments to experimental peaks
-
 ## ❓ Troubleshooting
 
 ### Common Issues
@@ -207,28 +190,6 @@ In proteomics, mass spectrometry generates fragmentation spectra of peptides. Da
 - **Browser**: Use Chrome/Firefox for best performance
 - **Network**: Local deployment recommended for large files
 
-## 🤝 Contributing
-
-We welcome contributions! Please feel free to:
-
-### Development Setup
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/your-feature`
-3. Make changes and test thoroughly
-4. Submit a pull request
-
-### Areas for Improvement
-- **Additional file formats** (mzML, mzXML support)
-- **Advanced visualization** (3D plots, statistical summaries)
-- **Batch processing** (multi-file analysis)
-- **Custom annotations** (post-translational modifications)
-
-### Code Standards
-- Follow PEP 8 style guidelines
-- Add docstrings for all functions
-- Include unit tests for new features
-- Update documentation
-
 ## 📄 License
 
 This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
@@ -247,7 +208,5 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 - [HUPO mzTab 2.0](https://hupo-psi.github.io/mzTab/)
 
 ---
-
-**Developed with ❤️ for the proteomics community**
 
 *For questions, issues, or contributions, please open an issue on GitHub.*
