@@ -68,6 +68,7 @@ A comprehensive web-based application for visualizing and analyzing **Peptide-Sp
 | **matplotlib** | ≥3.5 | Publication-quality plotting |
 | **pandas** | ≥1.3 | Data manipulation & analysis |
 | **numpy** | ≥1.20 | Numerical computations |
+| **pytest** | ≥7.0 | Unit testing framework |
 
 ## 📖 Usage Guide
 
@@ -164,6 +165,99 @@ The application handles various spectrum referencing conventions:
 - `scan=123` (scan number)
 - `spectrum:789` (colon-separated)
 - `42` (plain numeric)
+
+## 🧪 Testing
+
+The PSM Viewer includes comprehensive unit and integration tests to ensure reliability and correctness of the data processing pipeline.
+
+### Test Structure
+
+```
+tests/
+├── __init__.py                 # Test module initialization
+├── conftest.py                 # Shared pytest fixtures and configuration
+├── test_load_mgf.py           # Unit tests for MGF file loading
+├── test_load_mztab.py         # Unit tests for mzTab file loading
+├── test_extract_index_from_spectra_ref.py  # Unit tests for spectrum reference parsing
+├── test_map_psms_to_spectra.py  # Unit tests for PSM-spectrum mapping
+└── test_integration.py        # Integration tests for full pipeline
+```
+
+### Test Coverage
+
+The test suite covers:
+- **Unit Tests** (28 tests): Individual function testing for core components
+- **Integration Tests** (9 tests): End-to-end pipeline validation
+- **Edge Cases**: Malformed input handling, missing data, error conditions
+- **Data Formats**: Various spectrum reference formats and file structure variations
+
+### Running Tests
+
+1. **Install test dependencies** (included in `requirements.txt`):
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. **Run all tests:**
+   ```bash
+   pytest tests/
+   ```
+
+3. **Run with verbose output:**
+   ```bash
+   pytest tests/ -v
+   ```
+
+4. **Run specific test file:**
+   ```bash
+   pytest tests/test_load_mgf.py
+   ```
+
+5. **Run tests with coverage:**
+   ```bash
+   pytest tests/ --cov=app --cov-report=html
+   ```
+
+### Key Test Areas
+
+#### **MGF File Loading (`test_load_mgf.py`)**
+- ✅ Valid MGF parsing with complete spectrum data
+- ✅ Handling missing spectrum titles or PEPMASS fields
+- ✅ Empty spectrum processing
+- ✅ Multiple spectra in single file
+- ✅ Error handling for malformed or invalid data
+
+#### **mzTab File Loading (`test_load_mztab.py`)**
+- ✅ Standard mzTab PSM section parsing
+- ✅ Modified peptide sequences
+- ✅ Multiple PSM entries
+- ✅ Required PSM_ID column validation
+
+#### **Spectrum Reference Parsing (`test_extract_index_from_spectra_ref.py`)**
+- ✅ `index=123` format extraction
+- ✅ `scan=456` format extraction
+- ✅ `:789` suffix format
+- ✅ Plain numeric references
+- ✅ Edge cases and error conditions
+
+#### **PSM-Spectrum Mapping (`test_map_psms_to_spectra.py`)**
+- ✅ Direct title-based matching
+- ✅ Index-based matching with various formats
+- ✅ Title precedence over index
+- ✅ No-match scenarios
+- ✅ Mixed matching strategies
+
+#### **Integration Tests (`test_integration.py`)**
+- ✅ Full pipeline: MGF → mzTab → mapping → visualization
+- ✅ Edge cases: empty files, mismatched references
+- ✅ Error propagation and handling
+
+### Test Data
+
+Tests use sample data files in the `data/` directory:
+- `sample_preprocessed_spectra.mgf`: Real mass spectrometry data
+- `casanovo_20251029091517.mztab`: Peptide identification results
+
 
 ## ❓ Troubleshooting
 
