@@ -1,7 +1,6 @@
-import pytest
 import pandas as pd
 from io import StringIO
-from app import load_mztab
+from data_loading import load_mztab
 
 class TestLoadMZTAB:
     def test_load_sample_mztab(self, sample_mztab_buffer):

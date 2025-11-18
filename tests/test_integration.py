@@ -1,8 +1,8 @@
 import pytest
 from io import BytesIO, StringIO
 import pandas as pd
-import streamlit as st
-from app import load_mgf, load_mztab, map_psms_to_spectra
+from data_loading import load_mgf, load_mztab
+from processing import map_psms_to_spectra
 
 class TestIntegration:
     def test_full_pipeline(self, sample_mgf_buffer, sample_mztab_buffer):
@@ -22,7 +22,6 @@ class TestIntegration:
         matches = mapped['matched_title'].notnull().sum()
         assert matches > 0, "At least some PSMs should match spectra"
 
-    @pytest.mark.streamlit
     def test_streamlit_integration(self):
         """Test the Streamlit app with mock file uploads."""
         # This would require setting up streamlit testing

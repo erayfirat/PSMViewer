@@ -62,13 +62,33 @@ A comprehensive web-based application for visualizing and analyzing **Peptide-Sp
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| **streamlit** | ≥1.0 | Web application framework |
-| **pyteomics** | ≥4.0 | Mass spectrometry file parsing |
-| **spectrum-utils** | ≥0.4 | Advanced spectrum processing & annotation |
-| **matplotlib** | ≥3.5 | Publication-quality plotting |
-| **pandas** | ≥1.3 | Data manipulation & analysis |
-| **numpy** | ≥1.20 | Numerical computations |
-| **pytest** | ≥7.0 | Unit testing framework |
+| **streamlit** | ≥1.28.0 | Web application framework |
+| **pyteomics** | ≥4.6.5 | Mass spectrometry file parsing |
+| **spectrum-utils** | ≥0.4.4 | Advanced spectrum processing & annotation |
+| **matplotlib** | ≥3.8.0 | Publication-quality plotting |
+| **pandas** | ≥2.0.0 | Data manipulation & analysis |
+| **numpy** | ≥1.25.0 | Numerical computations |
+| **pytest** | ≥7.4.0 | Unit testing framework |
+
+## 🏗️ Project Structure
+
+The PSM Viewer is organized into modular components for maintainability and extensibility:
+
+### Core Modules
+
+- **`data_loading.py`**: Handles loading and parsing of spectral data files (MGF) and identification results (mzTab) with comprehensive error handling
+- **`processing.py`**: Contains functions for extracting spectrum indices and mapping PSMs to spectra using optimized vectorized operations
+- **`visualization.py`**: Generates annotated spectrum plots with fragment ion annotations using hardcoded spectrum processing parameters
+- **`app.py`**: Main entry point that orchestrates the Streamlit web application
+
+### Configuration
+
+The application uses hardcoded default parameters for optimal spectrum visualization:
+- **Charge state**: 2+ (precursor ion charge)
+- **Fragment tolerance**: 10 ppm for ion matching
+- **Mass range**: 100-1400 m/z for peptide fragments
+- **Peak filtering**: Retain top 50 most intense peaks, minimum 5% relative intensity
+- **Ion annotation**: b, y, and a ions with root-scale intensity normalization
 
 ## 📖 Usage Guide
 

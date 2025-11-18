@@ -1,6 +1,5 @@
-import pytest
 import pandas as pd
-from app import map_psms_to_spectra
+from processing import map_psms_to_spectra
 
 class TestMapPSMsToSpectra:
     def test_map_basic(self):

@@ -1,6 +1,6 @@
 import pytest
 from io import StringIO
-from app import load_mgf
+from data_loading import load_mgf
 
 class TestLoadMGF:
     def test_load_sample_mgf(self, sample_mgf_buffer):

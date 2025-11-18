@@ -1,5 +1,4 @@
-import pytest
-from app import extract_index_from_spectra_ref
+from processing import extract_index_from_spectra_ref
 
 class TestExtractIndexFromSpectraRef:
     def test_extract_index_index_format(self):
