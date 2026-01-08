@@ -8,6 +8,13 @@ import pandas as pd
 from typing import List, Dict, Optional
 
 
+# Pre-compile regex patterns for performance (re-used across calls)
+# Pattern 1-3: index=, scan=, :suffix
+_REF_PATTERN = re.compile(r'index=(\d+)|scan=(\d+)|:(\d+)$')
+# Pattern 4: full numeric
+_NUMERIC_PATTERN = re.compile(r'^\d+$')
+
+
 def extract_index_from_spectra_ref(s: Optional[str]) -> Optional[str]:
     """
     Extract numeric spectrum identifier from various reference formats.
@@ -22,7 +29,7 @@ def extract_index_from_spectra_ref(s: Optional[str]) -> Optional[str]:
         return None
 
     # Combined regex with prioritized patterns: index=, scan=, :suffix, full numeric
-    match = re.search(r'index=(\d+)|scan=(\d+)|:(\d+)$', s)
+    match = _REF_PATTERN.search(s)
     if match:
         # Return the first non-None group (index and scan have their own groups)
         if match.group(1):  # index=
@@ -33,7 +40,7 @@ def extract_index_from_spectra_ref(s: Optional[str]) -> Optional[str]:
             return match.group(3)
 
     # Pattern 4: Check if the entire string is numeric
-    if re.match(r'^\d+$', s):
+    if _NUMERIC_PATTERN.match(s):
         return s
 
     # No numeric identifier found
