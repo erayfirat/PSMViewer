@@ -68,7 +68,17 @@ def map_psms_to_spectra(spectra: List[Dict], psm_df: pd.DataFrame) -> pd.DataFra
     # Workflow: PSM-to-Spectrum Mapping
     # 1. Extract numeric indices from spectra_ref strings
     psm_df = psm_df.copy()  # Avoid modifying original DataFrame
-    psm_df['extracted_index'] = psm_df['spectra_ref'].astype(str).apply(extract_index_from_spectra_ref)
+
+    # ⚡ OPTIMIZATION: Use vectorized regex extraction instead of row-by-row apply
+    # Original: psm_df['extracted_index'] = psm_df['spectra_ref'].astype(str).apply(extract_index_from_spectra_ref)
+
+    # Patterns: index=(\d+), scan=(\d+), :(\d+)$ or ^(\d+)$
+    pattern = r'index=(\d+)|scan=(\d+)|:(\d+)$|^(\d+)$'
+    extracted = psm_df['spectra_ref'].astype(str).str.extract(pattern)
+
+    # Select first non-null match from the groups
+    # bfill(axis=1) fills holes backward (right-to-left), ensuring the first match propagates to column 0
+    psm_df['extracted_index'] = extracted.bfill(axis=1).iloc[:, 0]
 
     # 2. Match by title first, then by extracted index
     # title_match: direct title lookup
@@ -79,20 +89,27 @@ def map_psms_to_spectra(spectra: List[Dict], psm_df: pd.DataFrame) -> pd.DataFra
         .combine_first(psm_df['extracted_index'].map(index_to_spec, na_action='ignore'))
     )
 
-    # Build the mappings DataFrame using vectorized operations
-    def extract_field(spec, field):
-        if pd.notna(spec) and isinstance(spec, dict):
-            return spec[field] if field in spec else None
-        return None
+    # ⚡ OPTIMIZATION: Convert list of dicts to DataFrame directly instead of repeated apply calls
+    # Original: Multiple apply calls (4x iteration over full dataset)
+
+    # Convert matched Series to list, replacing NaNs with empty dicts for DataFrame construction
+    specs_list = [x if isinstance(x, dict) else {} for x in matched_spec_series]
+    specs_df = pd.DataFrame(specs_list)
+    specs_df.index = psm_df.index  # Align index with original DataFrame
+
+    # Ensure required columns exist (if no spectra matched or mock data missing keys)
+    for col in ['title', 'mz_array', 'intensity_array', 'pepmass']:
+        if col not in specs_df.columns:
+            specs_df[col] = None
 
     mappings = pd.DataFrame({
         'psm_index': psm_df.index,
         'sequence': psm_df['sequence'].astype(str),
         'spectra_ref': psm_df['spectra_ref'].astype(str),
-        'matched_title': matched_spec_series.apply(lambda x: extract_field(x, 'title')),
-        'mz_array': matched_spec_series.apply(lambda x: extract_field(x, 'mz_array')),
-        'intensity_array': matched_spec_series.apply(lambda x: extract_field(x, 'intensity_array')),
-        'pepmass': matched_spec_series.apply(lambda x: extract_field(x, 'pepmass'))
+        'matched_title': specs_df['title'],
+        'mz_array': specs_df['mz_array'],
+        'intensity_array': specs_df['intensity_array'],
+        'pepmass': specs_df['pepmass']
     })
 
     return mappings
