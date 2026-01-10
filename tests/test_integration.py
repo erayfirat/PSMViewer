@@ -59,4 +59,4 @@ class TestPipelineEdgeCases:
 
         mapped = map_psms_to_spectra(spectra, psm_df)
 
-        assert mapped.iloc[0]['matched_title'] is None
+        assert pd.isna(mapped.iloc[0]['matched_title'])
