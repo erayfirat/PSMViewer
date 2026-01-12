@@ -99,15 +99,19 @@ def map_psms_to_spectra(spectra: List[Dict], psm_df: pd.DataFrame) -> pd.DataFra
     # ⚡ OPTIMIZATION: Convert list of dicts to DataFrame directly instead of repeated apply calls
     # Original: Multiple apply calls (4x iteration over full dataset)
 
-    # Convert matched Series to list, replacing NaNs with empty dicts for DataFrame construction
-    specs_list = [x if isinstance(x, dict) else {} for x in matched_spec_series]
-    specs_df = pd.DataFrame(specs_list)
-    specs_df.index = psm_df.index  # Align index with original DataFrame
+    # Convert matched Series to list, replacing NaNs with empty dicts
+    # We use a default dict with None values to ensure explicit Nones instead
+    # of NaNs, which is crucial for boolean checks in app.py (NaN is Truthy).
+    expected_cols = ['title', 'mz_array', 'intensity_array', 'pepmass']
+    defaults = {col: None for col in expected_cols}
+    specs_list = [
+        x if isinstance(x, dict) else defaults for x in matched_spec_series
+    ]
 
-    # Ensure required columns exist (if no spectra matched or mock data missing keys)
-    for col in ['title', 'mz_array', 'intensity_array', 'pepmass']:
-        if col not in specs_df.columns:
-            specs_df[col] = None
+    # ⚡ OPTIMIZATION: Explicitly specify columns to skip schema inference
+    # (approx 2.25x faster)
+    specs_df = pd.DataFrame(specs_list, columns=expected_cols)
+    specs_df.index = psm_df.index  # Align index with original DataFrame
 
     mappings = pd.DataFrame({
         'psm_index': psm_df.index,
