@@ -100,14 +100,13 @@ def map_psms_to_spectra(spectra: List[Dict], psm_df: pd.DataFrame) -> pd.DataFra
     # Original: Multiple apply calls (4x iteration over full dataset)
 
     # Convert matched Series to list, replacing NaNs with empty dicts for DataFrame construction
-    specs_list = [x if isinstance(x, dict) else {} for x in matched_spec_series]
-    specs_df = pd.DataFrame(specs_list)
-    specs_df.index = psm_df.index  # Align index with original DataFrame
+    # Pre-fill None for missing matches to ensure Falsy behavior and avoid NaN (Truthy) issues
+    empty_spec = {'title': None, 'mz_array': None, 'intensity_array': None, 'pepmass': None}
+    specs_list = [x if isinstance(x, dict) else empty_spec for x in matched_spec_series.tolist()]
 
-    # Ensure required columns exist (if no spectra matched or mock data missing keys)
-    for col in ['title', 'mz_array', 'intensity_array', 'pepmass']:
-        if col not in specs_df.columns:
-            specs_df[col] = None
+    # Explicit columns skips schema inference and guarantees structure
+    specs_df = pd.DataFrame(specs_list, columns=['title', 'mz_array', 'intensity_array', 'pepmass'])
+    specs_df.index = psm_df.index  # Align index with original DataFrame
 
     mappings = pd.DataFrame({
         'psm_index': psm_df.index,

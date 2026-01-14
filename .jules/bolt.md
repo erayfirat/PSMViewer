@@ -1,3 +1,7 @@
 ## 2024-05-23 - [Regex Pre-compilation in Loops]
 **Learning:** Pre-compiling regular expressions (`re.compile`) at the module level provides a significant performance boost (measured ~1.8x speedup) when the regex is used inside a tight loop or a pandas `apply` function, compared to compiling it repeatedly or implicitly inside the loop. Vectorized string operations in Pandas are usually faster, but in complex logic cases (multiple prioritized regex groups + fallback logic), a simple pre-compiled regex with `apply` can sometimes be cleaner and sufficiently fast, or even faster if the vectorized approach requires multiple passes or expensive intermediate structures.
 **Action:** Always check for regex usage in loops or `apply` calls. If found, refactor to use module-level pre-compiled patterns. When considering vectorization, benchmark against the optimized loop version, as the overhead of complex vectorization might outweigh the benefits for moderate dataset sizes.
+
+## 2026-01-14 - [Pandas NaN vs None Truthiness]
+**Learning:** In this codebase, boolean checks like `if row['col']:` rely on `None` being Falsy. When creating DataFrames, missing keys default to `NaN` (float), which is Truthy. Explicitly filling missing values with `None` (object) is required to preserve this logic when optimizing DataFrame construction.
+**Action:** When optimizing DataFrame creation from dicts, if downstream logic uses boolean checks on columns, ensure missing values are explicitly set to `None` rather than relying on default `NaN`.
