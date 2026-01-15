@@ -54,8 +54,8 @@ class TestMapPSMsToSpectra:
         ])
         result = map_psms_to_spectra(spectra, psm_df)
         assert len(result) == 1
-        assert pd.isna(result.iloc[0]['matched_title'])
-        assert pd.isna(result.iloc[0]['mz_array'])
+        assert result.iloc[0]['matched_title'] is None
+        assert result.iloc[0]['mz_array'] is None
 
     def test_map_mixed_matching(self):
         """Test different matching types."""
