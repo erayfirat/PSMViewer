@@ -14,6 +14,9 @@ _REF_PATTERN = re.compile(r'index=(\d+)|scan=(\d+)|:(\d+)$')
 # Pattern 4: full numeric
 _NUMERIC_PATTERN = re.compile(r'^\d+$')
 
+# Default spectrum dictionary for missing matches (ensures consistent schema with None values)
+_DEFAULT_SPEC = {'title': None, 'mz_array': None, 'intensity_array': None, 'pepmass': None}
+
 
 def extract_index_from_spectra_ref(s: Optional[str]) -> Optional[str]:
     """
@@ -98,16 +101,14 @@ def map_psms_to_spectra(spectra: List[Dict], psm_df: pd.DataFrame) -> pd.DataFra
 
     # ⚡ OPTIMIZATION: Convert list of dicts to DataFrame directly instead of repeated apply calls
     # Original: Multiple apply calls (4x iteration over full dataset)
+    # Improvement: Use .tolist() for faster iteration and explicit columns to skip schema inference.
+    # Also use _DEFAULT_SPEC to ensure missing rows have None instead of NaN for correct logic in app.py.
 
-    # Convert matched Series to list, replacing NaNs with empty dicts for DataFrame construction
-    specs_list = [x if isinstance(x, dict) else {} for x in matched_spec_series]
-    specs_df = pd.DataFrame(specs_list)
+    # Convert matched Series to list, replacing NaNs with default dict for DataFrame construction
+    specs_list = [x if isinstance(x, dict) else _DEFAULT_SPEC for x in matched_spec_series.tolist()]
+
+    specs_df = pd.DataFrame(specs_list, columns=['title', 'mz_array', 'intensity_array', 'pepmass'])
     specs_df.index = psm_df.index  # Align index with original DataFrame
-
-    # Ensure required columns exist (if no spectra matched or mock data missing keys)
-    for col in ['title', 'mz_array', 'intensity_array', 'pepmass']:
-        if col not in specs_df.columns:
-            specs_df[col] = None
 
     mappings = pd.DataFrame({
         'psm_index': psm_df.index,
