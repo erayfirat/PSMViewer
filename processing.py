@@ -100,14 +100,19 @@ def map_psms_to_spectra(spectra: List[Dict], psm_df: pd.DataFrame) -> pd.DataFra
     # Original: Multiple apply calls (4x iteration over full dataset)
 
     # Convert matched Series to list, replacing NaNs with empty dicts for DataFrame construction
-    specs_list = [x if isinstance(x, dict) else {} for x in matched_spec_series]
-    specs_df = pd.DataFrame(specs_list)
-    specs_df.index = psm_df.index  # Align index with original DataFrame
+    # Optimization: Use tolist() for faster iteration and specify columns to avoid schema inference
+    # Use a default dict with None values to ensure consistency for non-matches.
+    defaults = {'title': None, 'mz_array': None, 'intensity_array': None, 'pepmass': None}
 
-    # Ensure required columns exist (if no spectra matched or mock data missing keys)
-    for col in ['title', 'mz_array', 'intensity_array', 'pepmass']:
-        if col not in specs_df.columns:
-            specs_df[col] = None
+    # We iterate over the list. If it's a dict, we use it. If not (NaN from Series), use defaults.
+    # Note: If a matching dict is missing keys, they will appear as NaN in the DataFrame unless we handle them.
+    # However, load_mgf guarantees these keys exist (even if None).
+    specs_list = [x if isinstance(x, dict) else defaults for x in matched_spec_series.tolist()]
+
+    # ⚡ OPTIMIZATION: Use dtype=object to preserve None values directly (avoids coercing to NaN)
+    # This is critical because app.py logic and tests distinguish between None (falsy) and NaN (truthy)
+    specs_df = pd.DataFrame(specs_list, columns=['title', 'mz_array', 'intensity_array', 'pepmass'], dtype=object)
+    specs_df.index = psm_df.index  # Align index with original DataFrame
 
     mappings = pd.DataFrame({
         'psm_index': psm_df.index,
