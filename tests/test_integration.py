@@ -1,4 +1,5 @@
 import pytest
+import io
 from io import BytesIO, StringIO
 import pandas as pd
 from data_loading import load_mgf, load_mztab
@@ -21,6 +22,27 @@ class TestIntegration:
         # Check that some mappings were successful
         matches = mapped['matched_title'].notnull().sum()
         assert matches > 0, "At least some PSMs should match spectra"
+
+    def test_loading_with_textiowrapper(self, sample_mgf_content, sample_mztab_content):
+        """Test data loading with io.TextIOWrapper (simulating Streamlit optimization)."""
+        # Create BytesIO buffers (simulating file uploads)
+        mgf_bytes = BytesIO(sample_mgf_content.encode('utf-8'))
+        mztab_bytes = BytesIO(sample_mztab_content.encode('utf-8'))
+
+        # Wrap with TextIOWrapper
+        mgf_wrapper = io.TextIOWrapper(mgf_bytes, encoding='utf-8')
+        mztab_wrapper = io.TextIOWrapper(mztab_bytes, encoding='utf-8')
+
+        # Load data
+        spectra = load_mgf(mgf_wrapper)
+        psm_df = load_mztab(mztab_wrapper)
+
+        assert len(spectra) > 0
+        assert len(psm_df) > 0
+
+        # Verify structure
+        assert 'title' in spectra[0]
+        assert 'sequence' in psm_df.columns
 
     def test_streamlit_integration(self):
         """Test the Streamlit app with mock file uploads."""
