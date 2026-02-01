@@ -33,8 +33,9 @@ def run_streamlit_app():
     if mgf_file and mztab_file:
         # Decode uploaded file contents (Streamlit files are bytes by default)
         # Use StringIO to create file-like objects for pyteomics parsers
-        spectra = load_mgf(io.StringIO(mgf_file.read().decode('utf-8')))
-        psm_df = load_mztab(io.StringIO(mztab_file.read().decode('utf-8')))
+        # ⚡ OPTIMIZATION: Use io.TextIOWrapper to stream decoding instead of loading whole file into memory
+        spectra = load_mgf(io.TextIOWrapper(mgf_file, encoding='utf-8'))
+        psm_df = load_mztab(io.TextIOWrapper(mztab_file, encoding='utf-8'))
 
         # Create mappings between PSMs and spectra
         mapped = map_psms_to_spectra(spectra, psm_df)
